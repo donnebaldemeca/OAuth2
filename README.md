@@ -1,6 +1,6 @@
 OAuth2 server in GoLang
 
-Spec: RFC 6749
+Spec: RFC 6749 Sec 4.1
 
 run:
 - docker-compose up
