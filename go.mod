@@ -1,4 +1,4 @@
-module authorization-service
+module github.com/donnebaldemeca/OAuth2
 
 go 1.23.4
 
