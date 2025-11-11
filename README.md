@@ -4,6 +4,7 @@ Spec: RFC 6749 Sec 4.1
 
 run:
 - docker-compose up
+- cd authorization-service (must run from this dir for .env)
 - go run client/client.go
 - go run authorization/authorization.go
 
