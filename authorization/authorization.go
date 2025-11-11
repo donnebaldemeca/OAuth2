@@ -1,4 +1,4 @@
-package authserver
+package main
 
 import (
 	"crypto/rand"
@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/donnebaldemeca/OAuth2/internal/env"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -26,148 +24,111 @@ import (
 /*  MODELS  */
 
 // Postgres database model
-// moved to internal/db/db.go
-// type Client struct {
-// 	ClientID     string    `json:"client_id" gorm:"uniqueIndex"`
-// 	ClientName   string    `json:"client_name" gorm:"primaryKey"`
-// 	ClientSecret string    `json:"-"`
-// 	Website      string    `json:"website"`
-// 	RedirectURI  string    `json:"redirect_uri"`
-// 	CreatedAt    time.Time `json:"created_at"`
-// 	UpdatedAt    time.Time `json:"updated_at"`
-// 	DeletedAt    time.Time `json:"-" gorm:"deleted_at"`
-// }
+type Client struct {
+	ClientID     string    `json:"client_id" gorm:"uniqueIndex"`
+	ClientName   string    `json:"client_name" gorm:"primaryKey"`
+	ClientSecret string    `json:"-"`
+	Website      string    `json:"website"`
+	RedirectURI  string    `json:"redirect_uri"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	DeletedAt    time.Time `json:"-" gorm:"deleted_at"`
+}
 
-// type AuthRequest struct {
-// 	ResponseType string `json:"response_type" query:"response_type"`
-// 	ClientID     string `json:"client_id" query:"client_id"`
-// 	RedirectURI  string `json:"redirect_uri" query:"redirect_uri"`
-// 	Scope        string `json:"scope" query:"scope"`
-// 	State        string `json:"state" query:"state"`
-// }
+type AuthRequest struct {
+	ResponseType string `json:"response_type" query:"response_type"`
+	ClientID     string `json:"client_id" query:"client_id"`
+	RedirectURI  string `json:"redirect_uri" query:"redirect_uri"`
+	Scope        string `json:"scope" query:"scope"`
+	State        string `json:"state" query:"state"`
+}
 
-// type AuthGrant struct {
-// 	Code  string `json:"code"`
-// 	State string `json:"state"`
-// }
+type AuthGrant struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+}
 
-// type TokenRequestBody struct {
-// 	GrantType   string `json:"grant_type" form:"grant_type"`
-// 	Code        string `json:"code" form:"code"`
-// 	RedirectURI string `json:"redirect_uri" form:"redirect_uri"`
-// }
+type TokenRequestBody struct {
+	GrantType   string `json:"grant_type" form:"grant_type"`
+	Code        string `json:"code" form:"code"`
+	RedirectURI string `json:"redirect_uri" form:"redirect_uri"`
+}
 
-// type TokenRequestHeader struct {
-// 	Host          string `json:"Host" reqHeader:"Host"`
-// 	ContentType   string `json:"Content-Type" reqHeader:"Content-Type"`
-// 	Authorization string `json:"Authorization" reqHeader:"Authorization"`
-// }
+type TokenRequestHeader struct {
+	Host          string `json:"Host" reqHeader:"Host"`
+	ContentType   string `json:"Content-Type" reqHeader:"Content-Type"`
+	Authorization string `json:"Authorization" reqHeader:"Authorization"`
+}
 
-// type TokenResponse struct {
-// 	AccessToken string `json:"access_token"`
-// 	TokenType   string `json:"token_type"`
-// 	ExpiresIn   int    `json:"expires_in"`
-// 	// RefreshToken string `json:"refresh_token"` should add eventually
-// }
+type TokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+	// RefreshToken string `json:"refresh_token"` should add eventually
+}
 
-// func NewAuthGrant(code string, state string) *AuthGrant {
-// 	return &AuthGrant{
-// 		Code:  code,
-// 		State: state,
-// 	}
-// }
+func NewAuthGrant(code string, state string) *AuthGrant {
+	return &AuthGrant{
+		Code:  code,
+		State: state,
+	}
+}
 
-// func DecodeBasicAuthHeader(header string) (string, string, error) {
-// 	// Validate the header format
-// 	if !strings.HasPrefix(header, "Basic ") {
-// 		return "", "", fmt.Errorf("invalid Authorization header format")
-// 	}
+func DecodeBasicAuthHeader(header string) (string, string, error) {
+	// Validate the header format
+	if !strings.HasPrefix(header, "Basic ") {
+		return "", "", fmt.Errorf("invalid Authorization header format")
+	}
 
-// 	// Separate base64 encoded credentials
-// 	auth := strings.SplitN(header, " ", 2)
-// 	if len(auth) != 2 {
-// 		return "", "", fmt.Errorf("invalid Authorization header format")
-// 	}
+	// Separate base64 encoded credentials
+	auth := strings.SplitN(header, " ", 2)
+	if len(auth) != 2 {
+		return "", "", fmt.Errorf("invalid Authorization header format")
+	}
 
-// 	// Decode base64 credentials
-// 	decoded, err := base64.StdEncoding.DecodeString(auth[1])
-// 	if err != nil {
-// 		return "", "", fmt.Errorf("failed to decode base64: %v", err)
-// 	}
+	// Decode base64 credentials
+	decoded, err := base64.StdEncoding.DecodeString(auth[1])
+	if err != nil {
+		return "", "", fmt.Errorf("failed to decode base64: %v", err)
+	}
 
-// 	// Split credentials into ClientID and ClientSecret
-// 	credentials := strings.SplitN(string(decoded), ":", 2)
-// 	if len(credentials) != 2 {
-// 		return "", "", fmt.Errorf("invalid credentials format")
-// 	}
+	// Split credentials into ClientID and ClientSecret
+	credentials := strings.SplitN(string(decoded), ":", 2)
+	if len(credentials) != 2 {
+		return "", "", fmt.Errorf("invalid credentials format")
+	}
 
-// 	return credentials[0], credentials[1], nil
-// }
+	return credentials[0], credentials[1], nil
+}
 
-// func GenerateToken() string {
-// 	// Generate random bytes
-// 	randomBytes := make([]byte, 1024)
-// 	if _, err := rand.Read(randomBytes); err != nil {
-// 		panic("Unable to generate random state value")
-// 	}
+func GenerateToken() string {
+	// Generate random bytes
+	randomBytes := make([]byte, 1024)
+	if _, err := rand.Read(randomBytes); err != nil {
+		panic("Unable to generate random state value")
+	}
 
-// 	// Calculate SHA-256 hash
-// 	hash := sha256.Sum256(randomBytes)
+	// Calculate SHA-256 hash
+	hash := sha256.Sum256(randomBytes)
 
-// 	// Convert hash to hex string
-// 	hexString := hex.EncodeToString(hash[:])
+	// Convert hash to hex string
+	hexString := hex.EncodeToString(hash[:])
 
-// 	return hexString
-// }
+	return hexString
+}
 
 func main() {
-
-	// load env
-	env.LoadEnv()
-
-	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
-		db: dbConfig{
-			dsn:          env.GetString("DB_DSN", "postgres://admin:adminpassword@localhost/social?sslmode=disable"),
-			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
-			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
-			maxIdleTime:  env.GetDuration("DB_MAX_IDLE_TIME", 15*time.Minute),
-		},
-
-	}
-
-	// setup database
-	db, err := gorm.Open(postgres.Open(cfg.db.dsn), &gorm.Config{})
-	if err != nil {
-		panic("Failed to connect to DB")
-	}
-
-	pgDB, err := db.DB()
-	if err != nil {
-		panic("Failed to return DB")
-	}
-	
-	defer pgDB.Close()
-
-	pgDB.SetMaxOpenConns(cfg.db.maxOpenConns)
-	pgDB.SetMaxIdleConns(cfg.db.maxIdleConns)
-	pgDB.SetConnMaxIdleTime(cfg.db.maxIdleTime)
-
-	// create config object stores server config and database config
-
 	/*  LOAD ENVIRONMENT  */
 
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	panic("Unable to load .env file")
-	// }
+	err := godotenv.Load()
+	if err != nil {
+		panic("Unable to load .env file")
+	}
 
-	// AUTH_PORT := os.Getenv("AUTH_PORT")
-	// if AUTH_PORT == "" {
-	// 	panic("PORT is not set")
-	// }
-	
-	// should be fetched from database
+	AUTH_PORT := os.Getenv("AUTH_PORT")
+	if AUTH_PORT == "" {
+		panic("PORT is not set")
+	}
 
 	CLIENT_ID := os.Getenv("CLIENT_ID")
 	if CLIENT_ID == "" {
@@ -194,22 +155,17 @@ func main() {
 		panic("AUTH_URI is not set")
 	}
 
-	// end
-
 	/*  DATABASE SETUP  */
 
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		panic("DATABASE_URL is not set")
+	}
 
-	// dbURL := os.Getenv("DATABASE_URL")
-	// if dbURL == "" {
-	// 	panic("DATABASE_URL is not set")
-	// }
-
-	// db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{})
-	// if err != nil {
-	// 	panic("Failed to connect")
-	// }
-
-
+	db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{})
+	if err != nil {
+		panic("Failed to connect")
+	}
 
 	// Clear database for testing purposes
 	db.Exec("DELETE FROM clients")
@@ -245,24 +201,8 @@ func main() {
 		return c.SendString("OAuth 2.0 Authorization Server")
 	})
 
-	// User should login/register then pass auth request query values in url to next endpoint
-
-	// authServer.Get("/login", func(c *fiber.Ctx) error {})
-		// register/ forgot password
-		// pass to "/consent"
-	
-	// authServer.Get("/register", func(c *fiber.Ctx) error {})
-		// after register pass back to "/login"
-	
-	// Once logged in or registered must consent then pass auth request query values in url to next endpoint (/auth)
-	
-	// authServer.Get("/consent", func(c *fiber.Ctx) error {})
-		// update consent in database, and forward to /auth
-
 	// Authorization Code Flow Implementation
 	authServer.Get("/auth", func(c *fiber.Ctx) error {
-		
-		
 		// Auth Request Validation
 		authRequest := new(AuthRequest)
 		if err := c.QueryParser(authRequest); err != nil {
@@ -301,7 +241,7 @@ func main() {
 			})
 		}
 
-		// Should ent website
+		// Should add a login system here for users of client website
 
 		// Validate client web server
 		client := new(Client)
