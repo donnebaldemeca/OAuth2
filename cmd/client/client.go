@@ -92,7 +92,7 @@ func main() {
 
 	/*  FIBER WEB FRAMEWORK  */
 
-	engine := html.New("./client/views", ".html")
+	engine := html.New("./cmd/client/views", ".html")
 
 	clientServer := fiber.New(fiber.Config{
 		AppName: "Client",

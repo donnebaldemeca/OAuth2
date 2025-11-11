@@ -186,7 +186,7 @@ func main() {
 
 	/*  FIBER WEB FRAMEWORK  */
 
-	engine := html.New("./authorization/views", ".html")
+	engine := html.New("./cmd/authorization/views", ".html")
 
 	authServer := fiber.New(fiber.Config{
 		AppName: "Authorization Service",
